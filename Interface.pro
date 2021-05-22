@@ -13,6 +13,7 @@ SOURCES += \
     Inotifier/InotifyServiceInterface.cpp \
     Inotifier/main1.cpp \
     inotifiermainwindow.cpp \
+    interProcessingCommunications.cpp \
     main.cpp
 
 HEADERS += \
@@ -21,7 +22,9 @@ HEADERS += \
     Inotifier/InotifierService/MaskDecodeServiceComponent.h \
     Inotifier/InotifyServiceInterface.h \
     Inotifier/models/FilesystemEv.h \
-    inotifiermainwindow.h
+    inotifiermainwindow.h \
+    interProcessingCommunications.h \
+    main.h
 
 FORMS +=
 
