@@ -2,7 +2,7 @@
 #include <iostream>
 #include "InotifierService/Inotifier.h"
 #include <list>
-
+#include <iostream>
 
 class InotifyServiceInterface {
 
@@ -27,11 +27,13 @@ public:
     int* getServiceControlPipe(){return serviceControlPipe;};
     int* getServiceResponcePipe(){return serviceResponcePipe;};
     int* getServiceConfigurePipe(){return serviceConfigurePipe;};
-
+    std::ostream* getDebugStream(){return debug_stream;};
+    void setDebugStream (std::ostream* from){debug_stream = from; ino1.setDebugStream(debug_stream);};
     std::shared_ptr<FSEvent> getEvent();
     uint32_t getMask(){return ino1.getMask();};
 private:
     Inotifier ino1;
+    std::ostream* debug_stream;
     int dataPipe[2];
     int serviceControlPipe[2];
     int serviceResponcePipe[2];

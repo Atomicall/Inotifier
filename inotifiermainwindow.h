@@ -39,6 +39,7 @@ private:
    QPushButton* addButton;
    QPushButton* stopButton;
    QPushButton* startButton;
+   QPushButton* shitFix;
    QLineEdit* pathLine;
    QLabel* statusLabel;
    QString path;
@@ -75,6 +76,7 @@ private:
    void SetAllCheckBoxesUnchekable();
    void SetAllCheckBoxesChekable();
    void updateMask();
+public: void emitnewFSEventInDataPipe (){this->shitFix->clicked();}
 
    int dataPipe[2];
    int serviceControlPipe[2];

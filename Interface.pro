@@ -11,9 +11,7 @@ CONFIG += c++11
 SOURCES += \
     Inotifier/InotifierService/Inotifier.cpp \
     Inotifier/InotifyServiceInterface.cpp \
-    Inotifier/main1.cpp \
     inotifiermainwindow.cpp \
-    interProcessingCommunications.cpp \
     main.cpp
 
 HEADERS += \

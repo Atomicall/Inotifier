@@ -34,9 +34,7 @@ struct Control_args{
 volatile sig_atomic_t presentCommand = 0;
 volatile sig_atomic_t exitf =0;
 
-//void ServiceControlSignal (int signal);
-//void* serviceControlThread(void* recevied_args);
-//void* inotifierThread (void* arg);
+
 void ServiceControlSignal (int signal){
     // Минное поле
     //https://habr.com/ru/post/141206/
@@ -67,7 +65,7 @@ void* serviceControlThread(void* recevied_args){
         std::cerr<<"!!ENDING READ from ServiceCoontrolPipe @COMMAND@ in serviceControlThread"<<std::endl;
         if ( -1 ==sta ){std::cerr<<"///////////////Failed while: trying to read data from ServiceControlPipe in ++ControlThread++"<<std::endl;}
         std::cerr<<"Cmd reciever from Control Pipe is: "<<cmd<<std::endl;
-        char msg [100] = {};
+        char msg [255] = {};
         int stat;
         switch (cmd) {
         case (InotifyServiceInterface::START):{
@@ -128,6 +126,7 @@ void* serviceControlThread(void* recevied_args){
         break;
         }
         case (InotifyServiceInterface::ADD_DIR):{
+            static bool isFirst = 1;
             char msg_rec[500]={};
             std::cerr<<"!!STARTING READ from ServiceConfigurePipe @DIR_FILE_PATH@ in ++serviceControlThread++"<<std::endl;
             int stat = read(args->service_ptr->getServiceConfigurePipe()[0], &msg_rec, sizeof(msg_rec));
@@ -135,7 +134,9 @@ void* serviceControlThread(void* recevied_args){
             std::cerr<<"!!ENDING READ from ServiceConfigurePipe @DIR_FILE_PATH@ in ++serviceControlThread++"<<std::endl;
             std::string tmp_path (msg_rec);
             std::clog<<"Path recieved from ConfigurePipe is:  "<<tmp_path<<" Or "<<msg_rec<<std::endl;
-            args->service_ptr->setDir(tmp_path);
+            if (isFirst)
+            {args->service_ptr->setDir(tmp_path); isFirst =0;}
+            else {args->service_ptr->setOneDir(tmp_path);}
             memcpy(msg , "Path for Inotifier Set", sizeof(msg));
             std::cerr<<"!!STARTING WRITE to ServiceResponcePipe @PATH_SET_OK@ in ++serviceControlThread++"<<std::endl;
             stat = write(args->service_ptr->getServiceResponcePipe()[1], &msg, sizeof(msg));
@@ -160,8 +161,8 @@ void* serviceControlThread(void* recevied_args){
 }
 
 void* inotifierThread (void* arg){
-    // ! Не баг, а фича. В случае моего сервиса его можно только приостановить (т.к можно только отменить процесс, в котором работает epoll_wait). Поэтому после запуска он выдает все ивенты,
-    // что произошли в период простоя
+    // !  В случае моего сервиса его можно только приостановить (т.к можно только отменить процесс, в котором работает epoll_wait). Поэтому после запуска он выдает все ивенты,
+    // что произошли в период простоя, кроме первого, не чинится почему-то
     arg_st* args_struct = (arg_st*) arg;
     InotifierMainwindow* mainw = args_struct->mainw;
     InotifyServiceInterface inter;
@@ -170,6 +171,7 @@ void* inotifierThread (void* arg){
     inter.setServiceControlPipe(args_struct->serviceControlPipe);
     inter.setServiceResponcePipe(args_struct->serviceResponcePipe);
     inter.setServiceConfigurePipe((args_struct->serviceConfigurePipe));
+    inter.setDebugStream(&std::cerr);
 
 
     pthread_t serviceControlThreadId;
@@ -179,18 +181,23 @@ void* inotifierThread (void* arg){
     while (!exitf){
         while (inter.getStatus()) {
                temp_event = inter.getEvent(); // Блокируется, пока не получит событие (т.е ф-д не изменится)
+
                if (temp_event==nullptr){continue;}
-               if (!temp_event->isEmpty()){
-                   FSEvent tmp = *temp_event;
-                   write(inter.getDataPipe()[1], &tmp, sizeof(tmp)); //колхоз, пиши правильную сериализацию
-                   emit mainw->newFSEventInDataPipe();
-               }
+
+                   FSEv_pod* pod = new FSEv_pod;
+                   *pod = FSEvent::serialize(temp_event.get());
+                   write(inter.getDataPipe()[1], pod, sizeof(*pod)); //колхоз, пиши правильную сериализацию
+
+                   //emit mainw->newFSEventInDataPipe();
+                   mainw->emitnewFSEventInDataPipe();
+                   delete  pod;
             }
     }
     std::cerr<<"Exit Ser";
     return NULL;
 }
-
+//Добавить асинхронный вывод для лога Inoti
+// Уведомление запуском нового потока, у когото
 
 
 

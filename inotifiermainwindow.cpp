@@ -11,6 +11,7 @@ InotifierMainwindow::InotifierMainwindow(QWidget *parent) : QMainWindow(parent),
     pathLine(new QLineEdit()),
     eventsField(new QTextEdit("There will Appear Events")),
    statusLabel(new QLabel("Nothing to do there")),
+   shitFix(new QPushButton("")),
    maskGroupBox(new QGroupBox("Mask"))
 {
     mainWidget->resize(QGuiApplication::primaryScreen()->geometry().width()*0.5,
@@ -83,11 +84,13 @@ InotifierMainwindow::InotifierMainwindow(QWidget *parent) : QMainWindow(parent),
     if (!QFileInfo(pathLocation).isDir()){
         pathLocation = QDir::currentPath();
     }
-
+    shitFix->setVisible(0);
     pathLine->setText(QDir::toNativeSeparators(pathLocation));
     connect(stopButton, &QAbstractButton::clicked, this, &InotifierMainwindow::stopButtonSlot);
     connect(startButton, &QAbstractButton::clicked, this, &InotifierMainwindow::startButtonSlot);
     connect(addButton, &QAbstractButton::clicked, this, &InotifierMainwindow::pathProcessingandFirstStarting);
+    connect(shitFix, &QAbstractButton::clicked, this, &InotifierMainwindow::newFSEventInDataPipe);
+
 }
 
 
@@ -97,7 +100,7 @@ void InotifierMainwindow::pathProcessingandFirstStarting(){
     if (path.isEmpty()) return;
     if (!QFileInfo(path).isDir()&&!QFile::exists(path)){
         path = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
-        eventsField->append("Seems like this is not a valid folder. ");  eventsField->append (getWasStarted() ? "Service did not start" : "Folder hasn't been added");
+        eventsField->append("Seems like this is not a valid folder. ");  eventsField->append (!getWasStarted() ? "Service did not start" : "Folder hasn't been added");
         pathLine->setText(path);
         return;
     }
@@ -128,21 +131,25 @@ void InotifierMainwindow::pathProcessingandFirstStarting(){
 
 }
 
-void InotifierMainwindow::newFSEventInDataPipe(){
 
-    char msg_in[100];
-    ssize_t len = read(this->getDataPipe()[0], msg_in, sizeof (msg_in));
+void InotifierMainwindow::newFSEventInDataPipe(){
+    FSEv_pod* pod = new FSEv_pod;
+    ssize_t len = read(this->getDataPipe()[0], pod, sizeof (*pod));
     if (len == -1) {std::cerr<<"Failed while: reading from DataPipe"<<std::endl; return;}
-    FSEvent* newfsev = (FSEvent*)msg_in;
+    FSEvent* newfsev = new FSEvent();
+    newfsev->fill(pod);
     std::stringstream ss;
+    //std::cerr<<*newfsev;
     ss << *newfsev;
     this->eventsField->append(QString(ss.str().c_str()));
+    delete pod;
+    delete newfsev;
 }
 
 
 
 void InotifierMainwindow::pipeResponceReady(){
-    char msg_in[100];
+    char msg_in[255];
     std::cerr<<"!!STARTING READ FROM ServiceResponcePipe @STAUS?@ in pipeResponceReady"<<std::endl;
     ssize_t len = read(this->getServiceResponcePipe()[0], msg_in, sizeof (msg_in));
     if (len == -1) {std::cerr<<"Failed while: reading from"

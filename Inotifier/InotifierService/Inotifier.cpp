@@ -10,7 +10,7 @@ Inotifier::Inotifier() {
     // Ввода-вывода (т.е не будем ждать, пока читается Inot, а возвращается
     // ошибка, что он не готов)
     if (inotFd == -1) {
-        std::cerr << "_Failed to initialize Inotify" << std::endl;
+        *this->cerr_stream << "_Failed to initialize Inotify" << std::endl;
         // To Do throw
     }
     // Сохраним fd, чтобы смогли им пользоваться при получении события
@@ -22,14 +22,16 @@ Inotifier::Inotifier() {
     // monitoring multiple file descriptors to see if I/O is possible on any of
     // them
     if (epollFd == -1) {
-        std::cerr << "_Failed to initialize epoll" << std::endl;
+        *this->cerr_stream << "_Failed to initialize epoll" << std::endl;
         // To Do throw
     }
 
     if (epoll_ctl(epollFd, EPOLL_CTL_ADD, inotFd, &epollEvent) == -1) {
-        std::cerr << "_Failed to add Inotify To Epoll_ctrl" << std::endl;
+        *this->cerr_stream << "_Failed to add Inotify To Epoll_ctrl" << std::endl;
         // To Do throw
     }
+    evBuff = new char [evBuffSize];
+    if (!evBuff){*this->cerr_stream<<"Failed to allocate mem for buff with size:"<<evBuffSize; exit (-1);}
     isRunned = 0;
 }
 
@@ -37,6 +39,7 @@ Inotifier::~Inotifier() {
     epoll_ctl(epollFd, EPOLL_CTL_DEL, inotFd, NULL);
     close(epollFd);
     close(inotFd);
+    delete [] evBuff;
 }
 
 void Inotifier::addDirSRecursively(std::filesystem::path root_path) {
@@ -58,7 +61,7 @@ void Inotifier::addDirSRecursively(std::filesystem::path root_path) {
             it.increment(ec);
         }
     } else {
-        std::cerr << "_Unexpected: Failed to add Dirs Recursively "
+        *this->cerr_stream << "_Unexpected: Failed to add Dirs Recursively "
                   << strerror(errno) << "|||" << errno << std::endl;
         return;
     }
@@ -72,19 +75,19 @@ void Inotifier::addDirSRecursively(std::filesystem::path root_path) {
 void Inotifier::addDirToWatch(std::filesystem::path dir_path) {
     int wd;
     if (!std::filesystem::exists(dir_path)) {
-        std::cerr << "_Failed to add Dir to Inot_Watch: Dir doen't exists"
+        *this->cerr_stream << "_Failed to add Dir to Inot_Watch: Dir doen't exists"
                   << std::endl;
         return;
 
     }
     if (eventsMask ==0){
-        std::cerr << "_Failed to add Dir To WatchList:: Mask==0; errno: " << errno << std::endl;
+        *this->cerr_stream << "_Failed to add Dir To WatchList:: Mask==0; errno: " << errno << std::endl;
 
         return;
     }
     wd = inotify_add_watch(inotFd, dir_path.c_str(), eventsMask);
     if (-1 == wd) {
-        std::cerr << "_Failed to add Dir To WatchList:" <<dir_path<<" Errno: "<< errno << std::endl;
+        *this->cerr_stream << "_Failed to add Dir To WatchList:" <<dir_path<<" Errno: "<< errno << std::endl;
 
         return;
     }
@@ -102,13 +105,13 @@ void Inotifier::removeDirFromWatch(std::filesystem::path dir_path) {
             std::find_if(dirMap.begin(), dirMap.end(), find_cr);
 
     if (dirMap.end() == result) {
-        std::cerr << "_Unexpected: path for delete wasn found in dirMap"
+        *this->cerr_stream << "_Unexpected: path for delete wasn found in dirMap"
                   << std::endl;
         return;
     };
 
     if (-1 == inotify_rm_watch(inotFd, result->first)) {
-        std::cerr << "Unexpected: failed to delete dirPath from dirMap"
+        *this->cerr_stream << "_Unexpected: failed to delete dirPath from dirMap"
                   << std::endl;
     }
     return;
@@ -116,7 +119,7 @@ void Inotifier::removeDirFromWatch(std::filesystem::path dir_path) {
 
 void Inotifier::readEventSToEventQueue() {
     if (0 == IsRunned()) {
-        std::cerr << "_Unexpected: Inotitfier must be stoppen, but you'r trying "
+        *this->cerr_stream << "_Unexpected: Inotitfier must be stoppen, but you'r trying "
                      "read event to Queue "
                   << std::endl;
         return;
@@ -130,18 +133,18 @@ void Inotifier::readEventSToEventQueue() {
     std::clog << "___STARTING read EPOLL"<<std::endl;
     int ep = epoll_wait(epollFd, &epollEvent, 1, -1 /*500000*/);
     if (-1 == ep) {
-        std::cerr << "_Unexpected: Epoll read error while trying to receive data "
+        *this->cerr_stream << "_Unexpected: Epoll read error while trying to receive data "
                      "from Inot: "
                   << errno << std::endl;
         return;
     };
-    std::clog << "___ENDING read EPOLL"<<std::endl;
+    std::clog << " ___ENDING read EPOLL"<<std::endl;
     std::clog << "___STARTING read READ"<<std::endl;
-    read_size = read(epollEvent.data.fd,evBuff, sizeof (evBuff));
-    if (!(this->IsRunned())) {std::clog<<"_____________________________________Stopped?\n"; return;};
+    read_size = read(epollEvent.data.fd,this->evBuff, this->evBuffSize);
+    if (!(this->IsRunned())) {*this->cerr_stream <<"_____________________________________Stopped?\n"; return;};
     if (-1 == (read_size)) {
-        std::cerr << "_Unexpected: Failed to read into buffer " << strerror(errno)
-                  << "|||" << errno << std::endl;
+        *this->cerr_stream << "_Unexpected: Failed to read into buffer " << strerror(errno)
+                  << "::" << errno << std::endl;
         return;
     } else {
         std::clog << "_OK read buff"<<std::endl;
@@ -150,7 +153,7 @@ void Inotifier::readEventSToEventQueue() {
     size_t processed = 0;
     std::filesystem::path path;
     while (processed < read_size) {
-        struct inotify_event *event = (struct inotify_event *)&evBuff[processed];
+        struct inotify_event *event = (struct inotify_event *)&this->evBuff[processed];
         if (event->mask & IN_IGNORED) {
             processed += EVENT_SIZE + event->len;
             continue;
@@ -162,12 +165,13 @@ void Inotifier::readEventSToEventQueue() {
         }
         if ((event->mask & IN_CREATE) && std::filesystem::is_directory(path)){
             this->addDirToWatch(path);
-            std::clog<<"_Added New? Adding to WatchList\n";
+            *this->cerr_stream <<"_Added New? Adding to WatchList\n";
         }
-        FSEvent fsEvent(event->wd, event->mask, path);
-        if (!fsEvent.path.empty()) {
+        FSEvent* fsEvent = new FSEvent(event->wd, event->mask, path);
+        if (!fsEvent->path.empty()) {
             EventQueue.push(fsEvent);
         }
+        delete fsEvent;
         processed += EVENT_SIZE + event->len;
     }
 }
@@ -178,16 +182,18 @@ void Inotifier::stopService(){isRunned=0; }
 void Inotifier::setEventsMask(uint32_t evMask) {this->eventsMask = evMask;}
 std::shared_ptr<FSEvent> Inotifier::getNextEvent() {
     if (!IsRunned()) {
-        std::cerr<<"_Inotifier must be stopped, but Yr trying to read event\n"<<std::endl;
+        *this->cerr_stream << "_Inotifier must be stopped, but Yr trying to read event\n"<<std::endl;
         return 0;
     }
     while (EventQueue.empty() && IsRunned()) {
         readEventSToEventQueue();
     }
     if (!EventQueue.empty()){
-    FSEvent event = EventQueue.front();
+    FSEvent* tmp = new FSEvent();
+    std::shared_ptr<FSEvent> event = std::make_shared<FSEvent>(tmp);
+    *event = EventQueue.front();
     EventQueue.pop();
-    return std::make_shared<FSEvent>(event);
+    return event;
     }
     return NULL;
 }

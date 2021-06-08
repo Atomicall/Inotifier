@@ -36,10 +36,10 @@ class Inotifier {
   int getEpollFd();
   int getInotifyFd();
   uint32_t getMask(){return eventsMask;};
+  void setDebugStream(std::ostream* from){cerr_stream = from; *cerr_stream<<"_Debug stream in Inotifier Set";}
 
 
  private:
- //?? std::atomic<bool> isRunned ();
   bool isRunned;
   uint32_t eventsMask= IN_ALL_EVENTS; // Маска отслеживаемых событий, общая для ВСЕХ (под)директорий в данном экземпляре Inotifier
   int inotFd;   //Храним экземпляр inotify
@@ -49,7 +49,9 @@ class Inotifier {
   std::vector<std::string> IgnoredDirs;// Что игнорируем, TO Do
   std::queue<FSEvent> EventQueue;//Очередь ивентов, либо пуста, либо, если не пуста, не заполняется, пока не очистится
   epoll_event epollEvent;
-  char evBuff[4096] = {};
+  std::ostream* cerr_stream = &std::cerr;
+  char* evBuff;
+  uint32_t evBuffSize = 8096;
 
 
 };

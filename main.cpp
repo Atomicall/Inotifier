@@ -34,8 +34,3 @@ int main(int argc, char *argv[])
     return app.exec();;
 }
 
-
-//To do
-// Поиграться с выводом
-//Сериализация
-// Гонка
