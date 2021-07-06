@@ -6,7 +6,7 @@
 #include <string>
 #include "../InotifierService/MaskDecodeServiceComponent.h"
 #include <string>
-// Модель для общения между Ui и сервисом
+
 
 struct FSEv_pod{
     int wd;
