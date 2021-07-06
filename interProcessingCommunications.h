@@ -162,7 +162,7 @@ void* serviceControlThread(void* recevied_args){
 
 void* inotifierThread (void* arg){
     // !  В случае моего сервиса его можно только приостановить (т.к можно только отменить процесс, в котором работает epoll_wait). Поэтому после запуска он выдает все ивенты,
-    // что произошли в период простоя, кроме первого, не чинится почему-то
+    // что произошли в период простоя
     arg_st* args_struct = (arg_st*) arg;
     InotifierMainwindow* mainw = args_struct->mainw;
     InotifyServiceInterface inter;
@@ -180,24 +180,21 @@ void* inotifierThread (void* arg){
     std::shared_ptr<FSEvent> temp_event=nullptr;
     while (!exitf){
         while (inter.getStatus()) {
-               temp_event = inter.getEvent(); // Блокируется, пока не получит событие (т.е ф-д не изменится)
+               temp_event = inter.getEvent();
 
                if (temp_event==nullptr){continue;}
 
                    FSEv_pod* pod = new FSEv_pod;
                    *pod = FSEvent::serialize(temp_event.get());
-                   write(inter.getDataPipe()[1], pod, sizeof(*pod)); //колхоз, пиши правильную сериализацию
+                   write(inter.getDataPipe()[1], pod, sizeof(*pod));
 
                    //emit mainw->newFSEventInDataPipe();
                    mainw->emitnewFSEventInDataPipe();
                    delete  pod;
             }
     }
-    std::cerr<<"Exit Ser";
     return NULL;
 }
-//Добавить асинхронный вывод для лога Inoti
-// Уведомление запуском нового потока, у когото
 
 
 
